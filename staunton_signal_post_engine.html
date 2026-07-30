@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staunton Signal — Post Engine</title>
+<style>
+  :root {
+    --bg: #0f0f12;
+    --panel: #18181c;
+    --border: #2a2a30;
+    --text: #e8e6e3;
+    --muted: #9a9590;
+    --accent: #ff6b35;
+    --accent2: #f7c948;
+    --accent3: #4ecdc4;
+    --accent4: #c44569;
+    --green: #2ecc71;
+    --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent4) 100%);
+    padding: 2rem 1.5rem 1.5rem;
+    text-align: center;
+    border-bottom: 3px solid var(--accent2);
+  }
+  header h1 {
+    font-size: 2.2rem;
+    letter-spacing: -1px;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  }
+  header p {
+    margin-top: 0.4rem;
+    opacity: 0.9;
+    font-size: 1rem;
+  }
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.5rem;
+  }
+  .tab {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); border-color: var(--accent); }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 4px 14px rgba(255,107,53,0.25);
+  }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform: translateY(0);} }
+
+  .post-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .post-card:hover { border-color: var(--accent); }
+  .post-card .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 0.6rem;
+  }
+  .tag.pinned { background: var(--accent4); color: #fff; }
+  .tag.hook { background: var(--accent); color: #fff; }
+  .tag.bomb { background: var(--accent2); color: #1a1a1a; }
+  .tag.talk { background: var(--accent3); color: #0f2e2c; }
+  .tag.tool { background: #a29bfe; color: #1a1a2e; }
+  .tag.extra { background: var(--green); color: #0f2e1a; }
+  .post-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  .post-body {
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.65;
+    margin-bottom: 0.8rem;
+  }
+  .post-body strong { color: var(--text); }
+  .post-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.copied { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* Substack importer */
+  .importer {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .importer h3 {
+    font-size: 1rem;
+    margin-bottom: 0.6rem;
+    color: var(--accent2);
+  }
+  textarea {
+    width: 100%;
+    min-height: 140px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 0.75rem;
+    font-family: var(--font);
+    font-size: 0.9rem;
+    resize: vertical;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .importer-actions { margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .generated-posts { margin-top: 1rem; }
+
+  /* Calendar */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .cal-day {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    border-left: 4px solid var(--accent);
+  }
+  .cal-day:nth-child(2) { border-left-color: var(--accent2); }
+  .cal-day:nth-child(3) { border-left-color: var(--accent3); }
+  .cal-day:nth-child(4) { border-left-color: var(--accent4); }
+  .cal-day:nth-child(5) { border-left-color: var(--green); }
+  .cal-day:nth-child(6) { border-left-color: #a29bfe; }
+  .cal-day:nth-child(7) { border-left-color: #ff9f43; }
+  .cal-day h4 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+  .cal-day p { font-size: 0.92rem; }
+
+  /* Stats strip */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .stat-box .num {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+  .stat-box .label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.2rem;
+  }
+
+  .footer-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.6rem; }
+    .tabs { gap: 0.35rem; }
+    .tab { padding: 0.5rem 0.8rem; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥 Staunton Signal — Post Engine</h1>
+  <p>Preserving Staunton, VA · Fighting Big Tech Overreach · One Post at a Time</p>
+</header>
+
+<div class="container">
+
+  <div class="stats">
+    <div class="stat-box"><div class="num">290+</div><div class="label">New Data Centers Planned</div></div>
+    <div class="stat-box"><div class="num">$11.24</div><div class="label">Dominion Rate Hike / Month</div></div>
+    <div class="stat-box"><div class="num">5M</div><div class="label">Gallons Water / Day / Center</div></div>
+    <div class="stat-box"><div class="num">68%</div><div class="label">Internet Controlled by 3 Cos</div></div>
+    <div class="stat-box"><div class="num">69</div><div class="label">Current Group Members</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('posts')">📋 Ready Posts</div>
+    <div class="tab" onclick="switchTab('substack')">📝 Substack → Posts</div>
+    <div class="tab" onclick="switchTab('calendar')">📅 Weekly Calendar</div>
+    <div class="tab" onclick="switchTab('workflow')">⚡ Workflow Tips</div>
+  </div>
+
+  <!-- READY POSTS -->
+  <div id="posts" class="panel active">
+
+    <div class="post-card">
+      <span class="tag pinned">📌 Pin This</span>
+      <div class="post-title">Post 1: The Opener</div>
+      <div class="post-body" id="p1">📍 <strong>Staunton, VA</strong> — We built this place with our hands.
+
+Now they're building data centers up in Northern Virginia that drink <strong>5 million gallons of water a day</strong> — enough for 50,000 people — while Dominion just hit us with an <strong>$11.24/month rate hike</strong> and Loudoun County had month-long drought restrictions.
+
+This group isn't about politics. It's about noticing.
+
+If you've ever looked at a self-checkout lane at the Staunton Walmart and felt something die inside, you're in the right place.
+
+Drop your name and what local spot you'd hate to see replaced by an Amazon warehouse. 👇</div>
+      <div class="post-actions">
+        <button class="btn" onclick="copyPost('p1', this)">📋 Copy</button>
+        <button class="btn" onclick="downloadPost('p1', 'opener.txt')">💾 Download</button>
+      </div>
+    </div>
+
+    <div class="post-card">
+      <span class="tag hook">🪝 Local Hook</span>
+      <div class="post-title">Post 2: The Local Hook</div>
+      <div class="post-body" id="p2">Northern Virginia just got clearance to build out data centers demanding <strong>70,000 megawatts</strong> of power daily. That's almost TRIPLE what all of Dominion Energy's customers used on the coldest day this past winter.
+
+They also got a fresh <strong>$11.24/month rate increase</strong>. Drought conditions hit Loudoun County so hard they had mandatory water restrictions. And the Potomac River Basin could fail to meet water needs by 2030.
+
+Sound familiar?
+
+Big Tech doesn't build <em>with</em> communities. They build <em>on top</em> of them.
+
+What's the biggest "development" project in the Staunton/Augusta County area that nobody asked for?</div>
+      <div class="post-actions">
+        <button class="btn" onclick="copyPost('p2', this)">📋 Copy</button>
+        <button class="btn" onclick="downloadPost('p2', 'local-hook.txt')">💾 Download</button>
+      </div>
+    </div>
+
+    <div class="post-card">
+      <span class="tag bomb">💣 Engagement Bomb</span>
+      <div class="post-title">Post 3: The Engagement Bomb</div>
+      <div class="post-body" id="p3"><strong>Image text to create (Canva / free):</strong>
+
+"1963: They killed a president and built ARPANET 6 years later.
+2026: 3 companies control 68% of the internet.
+Virginia data centers used 2.1 BILLION gallons of water in 2023.
+Coincidence?"
+
+---
+
+<strong>Caption:</strong>
+
+I don't do tinfoil. I do receipts.
+
+Virginia now hosts more than half of ALL U.S. data center energy consumption. Commercial electricity sales here jumped nearly 30 million megawatt-hours between 2019 and 2025. And Dominion's planning $50 billion in grid upgrades — with $17 billion of it tied directly to data center growth.
+
+If you've ever wondered why your electric bill keeps climbing, or why every app feels the same now — it's not your imagination.
+
+The infrastructure is centralized. The power is concentrated. And Staunton is downstream from all of it.
+
+Tag someone who needs to read this.</div>
+      <div class="post-actions">
+        <button class="btn" onclick="copyPost('p3', this)">📋 Copy</button>
+        <button class="btn" onclick="downloadPost('p3', 'engagement-bomb.txt')">💾 Download</button>
+      </div>
+    </div>
+
+    <div class="post-card">
+      <span class="tag talk">💬 Conversation Starter</span>
+      <div class="post-title">Post 4: The Conversation Starter</div>
+      <div class="post-body" id="p4">Be honest: When's the last time you talked to a cashier at the Staunton Kroger instead of using self-checkout?
+
+Not judging. Just asking.
+
+Because every time we choose the machine over the person, we're voting for a world where the machine is all that's left. Dominion's already pushing a new rate class where data centers get special treatment while residential bills climb. Virginia gives data centers a <strong>$1.6 billion annual sales tax break</strong> on server equipment.
+
+What's one local Staunton business you make a point to visit IN PERSON?</div>
+      <div class="post-actions">
+        <button class="btn" onclick="copyPost('p4', this)">📋 Copy</button>
+        <button class="btn" onclick="downloadPost('p4', 'conversation.txt')">💾 Download</button>
+      </div>
+    </div>
+
+    <div class="post-card">
+      <span class="tag tool">🛠️ Value Drop</span>
+      <div class="post-title">Post 5: The Value Drop</div>
+      <div class="post-body" id="p5"><strong>TOOL: Want to see where the internet actually lives?</strong>
+
+us-east-1 (Northern Virginia) processes 30-40% of ALL Amazon Web Services traffic. Within 40 miles of the Pentagon.
+
+One region. One power grid. One storm away from chaos.
+
+If you're in <strong>Staunton/Augusta County</strong>, here's why that matters:
+
+• <strong>Same grid.</strong> We're on Dominion Energy's system. Their peak winter load hit 25,413 MW this year — 45% higher than 2019. PJM expects summer demand to grow 5.4% per year for the next decade. That strain doesn't stay in NOVA.
+
+• <strong>Same water stress.</strong> Data centers pull hardest in summer when river flows are lowest. The Potomac Basin could fail to meet needs by 2030 in a drought. Indirect water use for power generation makes up 75% of total data center water consumption. That water doesn't grow on trees.
+
+• <strong>Same bill.</strong> Dominion's $50.1 billion capital plan includes a proposed $1 billion super high-voltage transmission line to feed data center hubs. Guess whose rates fund the infrastructure?
+
+Know your terrain. 🗺️
+
+[Link to your Substack deep-dive]</div>
+      <div class="post-actions">
+        <button class="btn" onclick="copyPost('p5', this)">📋 Copy</button>
+        <button class="btn" onclick="downloadPost('p5', 'value-drop.txt')">💾 Download</button>
+      </div>
+    </div>
+
+    <div class="post-card">
+      <span class="tag extra">⭐ Extra</span>
+      <div class="post-title">Post 6: Staunton-Specific Follow-Up</div>
+      <div class="post-body" id="p6"><strong>Throwback Thursday twist:</strong>
+
+The old Lee High building. Goshen Pass. The Stonewall Jackson Hotel. These are Staunton's bones.
+
+Now picture this: Central Virginia is expecting <strong>290+ new data centers</strong>. That's on top of the 200+ already choking Loudoun County. The state could see nearly 1,300 total.
+
+They're not building them in Fairfax because the grid's already broken there. They're looking south and west.
+
+What piece of Staunton's history or landscape would you fight to keep if they came knocking?
+
+Drop a photo or a memory. 👇</div>
+      <div class="post-actions">
+        <button class="btn" onclick="copyPost('p6', this)">📋 Copy</button>
+        <button class="btn" onclick="downloadPost('p6', 'staunton-followup.txt')">💾 Download</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SUBSTACK IMPORTER -->
+  <div id="substack" class="panel">
+    <div class="importer">
+      <h3>📝 Paste Your Substack Text Here</h3>
+      <textarea id="subInput" placeholder="Paste your Substack essay or note here. The engine will extract key stats, themes, and draft Facebook-ready snippets..."></textarea>
+      <div class="importer-actions">
+        <button class="btn" onclick="generateFromSubstack()">⚡ Generate Posts</button>
+        <button class="btn" onclick="document.getElementById('subInput').value=''">🗑️ Clear</button>
+      </div>
+    </div>
+    <div class="generated-posts" id="generated"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div id="calendar" class="panel">
+    <div class="cal-grid">
+      <div class="cal-day"><h4>Monday</h4><p><strong>Local Spotlight</strong><br>Shout out a Staunton business, park, or building. Tag them if they have a page.</p></div>
+      <div class="cal-day"><h4>Tuesday</h4><p><strong>The Receipt</strong><br>Drop a stat, news clip, or Dominion filing. Hard numbers hit harder than opinions.</p></div>
+      <div class="cal-day"><h4>Wednesday</h4><p><strong>Poll or Question</strong><br>"Would you rather keep your local grocery store or get 2-day Amazon delivery?"</p></div>
+      <div class="cal-day"><h4>Thursday</h4><p><strong>Throwback Thursday</strong><br>Old Staunton photos, memories of Lee High, Goshen Pass stories. Nostalgia = engagement.</p></div>
+      <div class="cal-day"><h4>Friday</h4><p><strong>The Forward</strong><br>Tease your latest Substack with 2 sentences. Link goes in first comment, not the post.</p></div>
+      <div class="cal-day"><h4>Saturday</h4><p><strong>Meme / Relatable</strong><br>Screenshot a self-checkout fail. Caption it with Staunton flavor.</p></div>
+      <div class="cal-day"><h4>Sunday</h4><p><strong>Community Check-In</strong><br>"What are you building, growing, or fixing this week?" Low effort, high warmth.</p></div>
+    </div>
+    <div class="post-card" style="margin-top:1.5rem;">
+      <div class="post-title">🎯 Monthly Theme Rotation</div>
+      <div class="post-body"><strong>Week 1:</strong> Infrastructure & Dominion rates
+<strong>Week 2:</strong> Water stress & drought
+<strong>Week 3:</strong> Local history & preservation
+<strong>Week 4:</strong> Big Tech concentration & alternatives
+
+Rotate so the group doesn't fatigue on one topic. Keep it fresh.</div>
+    </div>
+  </div>
+
+  <!-- WORKFLOW -->
+  <div id="workflow" class="panel">
+    <div class="post-card">
+      <div class="post-title">⚡ The 30-Minute Rule</div>
+      <div class="post-body">You post. You sit there for 30 minutes and reply to EVERY comment with a <strong>follow-up question</strong>. Not "thanks" — a question. This signals Facebook to push your stuff into more feeds.
+
+Example replies:
+• "What year was that?" 
+• "Where exactly was that located?"
+• "Do you think they'd try that here?"
+• "Who else remembers this?"</div>
+    </div>
+    <div class="post-card">
+      <div class="post-title">🔗 Link Strategy</div>
+      <div class="post-body">Facebook buries posts with outbound links in the main text.
+
+<strong>DO:</strong> Write your post. Put "Link in comments 👇" at the end. Paste the Substack URL as the FIRST comment immediately after posting.
+
+<strong>DON'T:</strong> Paste links in the main post body. Facebook's algorithm treats it as an exit signal and throttles reach.</div>
+    </div>
+    <div class="post-card">
+      <div class="post-title">📹 Go Live Once a Week</div>
+      <div class="post-body">Even 5 minutes. Walk downtown Staunton. Point at a building and tell its story. Or rant about a Dominion bill. Facebook pushes Lives harder than any other format.
+
+Pro tip: Announce it 24 hours ahead in the group. "Going live tomorrow at 7 PM to talk about [topic]."</div>
+    </div>
+    <div class="post-card">
+      <div class="post-title">🎯 Recruit the Right 31 Members</div>
+      <div class="post-body">You're at 69. Hit 100 and Facebook starts recommending the group organically.
+
+Don't mass-invite. Personally message 10 people who actually live in Staunton and would <em>post</em>, not just lurk.
+
+Script: <em>"Starting something for people who give a shit about Staunton not turning into Loudoun County. You in?"</em></div>
+    </div>
+    <div class="post-card">
+      <div class="post-title">📌 Pin a Welcome Post with Rules</div>
+      <div class="post-body">Even loose rules set the tone:
+• No partisan warfare — local focus only
+• Local stories and photos encouraged
+• Sources welcome, fear-mongering not
+• "If you see something, say something" — zoning hearings, development notices, etc.</div>
+    </div>
+    <div class="post-card">
+      <div class="post-title">🛠️ Use Facebook's Built-In Tools</div>
+      <div class="post-body">• <strong>Polls:</strong> Zero-effort engagement. Algorithm loves them.
+• <strong>Events:</strong> Bluegrass in the Park Wednesdays 7-9 PM — create a group event. Facebook pushes event activity.
+• <strong>Guides:</strong> Make a "Staunton Resources" guide with links to Augusta County zoning boards, Dominion rate case filings, your Substack.</div>
+    </div>
+  </div>
+
+  <div class="footer-note">Built for takeanickortwo · Staunton Signal · Slow is smooth, smooth is fast</div>
+
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+
+function copyPost(id, btn) {
+  const text = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.innerText;
+    btn.innerText = '✅ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerText = original; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function downloadPost(id, filename) {
+  const text = document.getElementById(id).innerText;
+  const blob = new Blob([text], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function generateFromSubstack() {
+  const input = document.getElementById('subInput').value.trim();
+  const out = document.getElementById('generated');
+  if (!input) { out.innerHTML = '<p style="color:var(--muted)">Paste something first.</p>'; return; }
+
+  // Simple extraction heuristics
+  const sentences = input.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20);
+  const stats = sentences.filter(s => /\d+/.test(s) && (s.includes('%') || s.includes('$') || s.includes('billion') || s.includes('million') || s.includes('gallon') || s.includes('megawatt')));
+  const themes = sentences.filter(s => s.length < 180 && s.length > 60).slice(0, 3);
+
+  let html = '';
+
+  if (stats.length) {
+    html += `<div class="post-card"><span class="tag tool">🛠️ Auto-Extracted Stat Post</span><div class="post-title">The Receipt</div><div class="post-body" id="gp1">`;
+    html += stats.slice(0,2).join('.
+
+') + '.';
+    html += `
+
+If you're in Staunton, this isn't theoretical. This is your electric bill. Your water. Your grid.
+
+What's the local impact nobody's talking about? 👇`;
+    html += `</div><div class="post-actions"><button class="btn" onclick="copyPost('gp1', this)">📋 Copy</button></div></div>`;
+  }
+
+  if (themes.length) {
+    html += `<div class="post-card"><span class="tag talk">💬 Auto-Extracted Conversation</span><div class="post-title">Conversation Starter</div><div class="post-body" id="gp2">`;
+    html += themes[0] + '.
+
+';
+    html += `Sound about right? Or are we missing something?
+
+Drop your take below. 👇`;
+    html += `</div><div class="post-actions"><button class="btn" onclick="copyPost('gp2', this)">📋 Copy</button></div></div>`;
+  }
+
+  if (!stats.length && !themes.length) {
+    html += `<div class="post-card"><div class="post-title">Raw Snippet</div><div class="post-body" id="gp3">${input.substring(0,800)}${input.length>800?'...':''}</div><div class="post-actions"><button class="btn" onclick="copyPost('gp3', this)">📋 Copy</button></div></div>`;
+  }
+
+  out.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
